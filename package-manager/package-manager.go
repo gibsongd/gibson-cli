@@ -1,15 +1,11 @@
 package packagemanager
 
 import (
-	"archive/zip"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
-	"time"
 
 	"github.com/theckman/yacspin"
 )
@@ -31,155 +27,65 @@ type AssetResult struct {
 
 var baseUrl string = "https://godotengine.org/asset-library/api"
 
-var downloadSpinner *yacspin.Spinner
+var findSpinner *yacspin.Spinner
 var getSpinner *yacspin.Spinner
+var downloadSpinner *yacspin.Spinner
+var installSpinner *yacspin.Spinner
 
 var colorYellow string = "\033[33m"
 var colorReset string = "\033[0m"
 
+var cacheFolder string = "gibson/addons"
+var unzipTarget string = "addons"
+
+func initPM() {
+	folder, err := os.UserCacheDir()
+	if err != nil {
+		panic(err)
+	}
+	cacheFolder = filepath.Join(folder, cacheFolder)
+}
+
 func init() {
-
-	getSpinner, _ = yacspin.New(
-		yacspin.Config{
-			Frequency:         100 * time.Millisecond,
-			CharSet:           yacspin.CharSets[59],
-			Prefix:            "[gibson-cli] ",
-			StopCharacter:     "✓",
-			StopColors:        []string{"fgGreen"},
-			StopFailCharacter: "✗",
-			StopFailColors:    []string{"fgRed"},
-		},
-	)
-
-	downloadSpinner, _ = yacspin.New(
-		yacspin.Config{
-			Frequency:         100 * time.Millisecond,
-			CharSet:           yacspin.CharSets[59],
-			Prefix:            "[gibson-cli] ",
-			StopCharacter:     "✓",
-			StopColors:        []string{"fgGreen"},
-			StopFailCharacter: "✗",
-			StopFailColors:    []string{"fgRed"},
-		},
-	)
-
+	initPM()
+	InitSpinners()
 }
 
-func downloadFile(filepath string, url string) error {
-	// Get the data
-	resp, err := http.Get(url)
+func clearCache(asset string) error {
+	var assetPath string = filepath.Join(cacheFolder, asset)
+	return os.RemoveAll(assetPath)
+}
+
+func lookForCachedAsset(asset string) (string, error) {
+	if strings.Contains(asset, "/") {
+		var assetPath string = filepath.Join(cacheFolder, asset)
+		if _, err := os.Stat(assetPath); err == nil {
+			fs, err := ioutil.ReadDir(assetPath)
+			if err != nil {
+				return "", err
+			}
+			sort.SliceStable(fs, func(i, j int) bool {
+				return fs[i].Name() > fs[j].Name()
+			})
+			return filepath.Join(assetPath, fs[0].Name()), nil
+		}
+	} else {
+		// maybe the id of each asset should be stored in a file under "gibson/addons"
+	}
+	return "", nil
+}
+
+func installAsset(asset string, archive string) {
+	startSpinner("installing "+formatAsset(asset), installSpinner)
+	err := unzip(archive, unzipTarget)
 	if err != nil {
-		return err
+		failSpinner("could not install "+formatAsset(asset)+", reason: "+err.Error(), installSpinner)
+		return
 	}
-	defer resp.Body.Close()
-
-	// Create the file
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return err
-	}
-	return err
+	stopSpinner(formatAsset(asset)+" installed successfully!", installSpinner)
 }
 
-func unzip(src string, dest string, skipName string) ([]string, error) {
-
-	var filenames []string
-
-	r, err := zip.OpenReader(src)
-	if err != nil {
-		return filenames, err
-	}
-	defer r.Close()
-
-	for _, f := range r.File {
-
-		// Store filename/path for returning and using later on
-		fpath := filepath.Join(dest, f.Name)
-		fpath = strings.Replace(fpath, "-"+skipName, "", 1)
-
-		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
-		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return filenames, fmt.Errorf("%s: illegal file path", fpath)
-		}
-
-		filenames = append(filenames, fpath)
-
-		if f.FileInfo().IsDir() {
-			// Make Folder
-			os.MkdirAll(fpath, os.ModePerm)
-			continue
-		}
-
-		// Make File
-		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-			return filenames, err
-		}
-
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-		if err != nil {
-			return filenames, err
-		}
-
-		rc, err := f.Open()
-		if err != nil {
-			return filenames, err
-		}
-
-		_, err = io.Copy(outFile, rc)
-
-		// Close the file without defer to close before next iteration of loop
-		outFile.Close()
-		rc.Close()
-
-		if err != nil {
-			return filenames, err
-		}
-	}
-	return filenames, nil
-}
-
-func doGet(url string, target interface{}) (int, error) {
-	resp, err := http.Get(baseUrl + url)
-	if err != nil {
-		return -1, err
-	}
-	defer resp.Body.Close()
-
-	return resp.StatusCode, json.NewDecoder(resp.Body).Decode(target)
-}
-
-func spinnerMessage(message string, spinner *yacspin.Spinner) {
-	spinner.Message(" " + message)
-}
-
-func startSpinner(message string, spinner *yacspin.Spinner) {
-	spinner.Start()
-	spinnerMessage(message, spinner)
-}
-
-func stopSpinner(message string, spinner *yacspin.Spinner) {
-	spinner.StopMessage(" " + message)
-	spinner.Stop()
-}
-
-func failSpinner(message string, spinner *yacspin.Spinner) {
-	spinner.StopFailMessage(" " + message)
-	spinner.StopFail()
-}
-
-func formatAsset(asset string) string {
-	return "`" + colorYellow + asset + colorReset + "`"
-}
-
-func InstallByAuthor(asset string) {
-
+func installByAuthor(asset string, clearCached bool) {
 	tempPack := strings.Split(asset, "/")
 	var author string = tempPack[0]
 	var assetName string = tempPack[1]
@@ -187,62 +93,90 @@ func InstallByAuthor(asset string) {
 	var toDownloadAddon Addon = Addon{}
 	var assetResult AssetResult = AssetResult{}
 
-	startSpinner("looking for "+formatAsset(asset), getSpinner)
-	_, err := doGet("/asset?user="+author+"&godot_version=3.4", &assetResult)
-	if err != nil {
-		failSpinner("fetching failed, reason: "+err.Error(), getSpinner)
+	// Look for asset by the author
+	startSpinner("looking for "+formatAsset(asset), findSpinner)
+
+	if clearCached {
+		clearCache(asset)
 	} else {
-		if len(assetResult.Result) < 1 {
-			failSpinner("couldn't find assets related to @"+author, getSpinner)
-		}
-		for _, addon := range assetResult.Result {
-			if addon.Title == assetName {
-				toDownloadAddon = addon
-				spinnerMessage(formatAsset(asset)+" found!", getSpinner)
-				break
-			}
-		}
-		if toDownloadAddon.Asset_id == "" {
-			failSpinner("couldn't find "+formatAsset(asset), getSpinner)
-		} else {
-			stopSpinner("starting download...", getSpinner)
-			startSpinner("downloading "+toDownloadAddon.Title, downloadSpinner)
-
-			var code int
-			code, err = doGet("/asset/"+toDownloadAddon.Asset_id, &toDownloadAddon)
-			if code > 400 {
-				failSpinner("download failed, reason: "+toDownloadAddon.Error, downloadSpinner)
-				return
-			}
-
-			err = downloadFile(toDownloadAddon.Download_commit+".zip", toDownloadAddon.Download_url)
-			if err != nil {
-				failSpinner("download failed, reason: "+err.Error(), downloadSpinner)
-				return
-			} else {
-				stopSpinner(formatAsset(asset)+" downloaded!", downloadSpinner)
-			}
-
-			unzip(toDownloadAddon.Download_commit+".zip", "addons/", toDownloadAddon.Download_commit)
+		if cached, err := lookForCachedAsset(asset); err == nil && cached != "" {
+			stopSpinner("found cached version of "+formatAsset(asset), findSpinner)
+			installAsset(asset, cached)
+			return
 		}
 	}
 
-}
-
-func InstallById(assetId string) {
-	var toDownloadAddon Addon = Addon{}
-	startSpinner("downloading "+toDownloadAddon.Title, downloadSpinner)
-
-	code, err := doGet("/asset/"+assetId, &toDownloadAddon)
-	if code > 400 {
-		failSpinner("download failed, reason: "+toDownloadAddon.Error, downloadSpinner)
+	_, err := doGet("/asset?user="+author+"&godot_version=3.4", &assetResult)
+	if err != nil {
+		failSpinner("fetching failed, reason: "+err.Error(), findSpinner)
 		return
 	}
 
-	err = downloadFile(toDownloadAddon.Download_commit+".zip", toDownloadAddon.Download_url)
+	// If there's a list, look for the asset
+	if len(assetResult.Result) < 1 {
+		failSpinner("couldn't find assets related to @"+author, findSpinner)
+	}
+	for _, addon := range assetResult.Result {
+		if addon.Title == assetName {
+			toDownloadAddon = addon
+			spinnerMessage(formatAsset(asset)+" found!", findSpinner)
+			break
+		}
+	}
+
+	// If there's an asset, download it and install it
+	if toDownloadAddon.Asset_id == "" {
+		failSpinner("couldn't find "+formatAsset(asset), findSpinner)
+		return
+	}
+	stopSpinner(formatAsset(asset)+" fetched!", findSpinner)
+
+	installById(toDownloadAddon.Asset_id)
+
+}
+
+func installById(assetId string) {
+	var toDownloadAddon Addon = Addon{Asset_id: assetId}
+
+	startSpinner("retrieving "+formatAsset(assetId)+" info", getSpinner)
+
+	code, err := doGet("/asset/"+assetId, &toDownloadAddon)
+	if code > 400 {
+		failSpinner("could not find "+formatAsset(assetId)+", reason: "+toDownloadAddon.Error, getSpinner)
+		return
+	}
+	stopSpinner(formatAsset(assetId)+" info retrieved!", getSpinner)
+
+	var asset string = toDownloadAddon.Author + "/" + toDownloadAddon.Title
+	var assetFolder string = filepath.Join(cacheFolder, asset)
+	os.MkdirAll(assetFolder, os.ModePerm)
+
+	startSpinner("downloading "+formatAsset(asset), downloadSpinner)
+
+	var archive string = filepath.Join(assetFolder, toDownloadAddon.Version+"_"+toDownloadAddon.Download_commit+".zip")
+	err = downloadFile(archive, toDownloadAddon.Download_url)
 	if err != nil {
 		failSpinner("download failed, reason: "+err.Error(), downloadSpinner)
-	} else {
-		stopSpinner(formatAsset(toDownloadAddon.Author+"/"+toDownloadAddon.Title)+" downloaded!", downloadSpinner)
+		return
 	}
+	stopSpinner(formatAsset(asset)+" downloaded!", downloadSpinner)
+
+	installAsset(asset, archive)
+}
+
+func InstallAddon(asset string, clearCached bool) {
+	if strings.Contains(asset, "/") {
+		installByAuthor(asset, clearCached)
+	} else {
+		installById(asset)
+	}
+}
+
+func UninstallAsset(asset string) {
+	startSpinner("uninstalling "+formatAsset(asset), findSpinner)
+	if err := clearCache(asset); err != nil {
+		failSpinner("could not uninstall "+formatAsset(asset)+", reason: "+err.Error(), findSpinner)
+	}
+	stopSpinner(formatAsset(asset)+" uninstalled", findSpinner)
+
 }
