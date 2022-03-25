@@ -31,6 +31,7 @@ var findSpinner *yacspin.Spinner
 var getSpinner *yacspin.Spinner
 var downloadSpinner *yacspin.Spinner
 var installSpinner *yacspin.Spinner
+var cacheSpinner *yacspin.Spinner
 
 var colorYellow string = "\033[33m"
 var colorReset string = "\033[0m"
@@ -48,12 +49,27 @@ func initPM() {
 
 func init() {
 	initPM()
-	InitSpinners()
+	initSpinners()
 }
 
-func clearCache(asset string) error {
+func GetUsage() string {
+	return "Usage of pm:\n" +
+		"-clear\n" +
+		"	Clear cached asset\n" +
+		"-install string\n" +
+		"	Install a new asset\n" +
+		"-uninstall string\n" +
+		"	Uninstall a new asset\n"
+}
+
+func clearCache(asset string) {
 	var assetPath string = filepath.Join(cacheFolder, asset)
-	return os.RemoveAll(assetPath)
+	startSpinner("clearing cached "+formatAsset(asset), cacheSpinner)
+	if err := os.RemoveAll(assetPath); err == nil {
+		stopSpinner(formatAsset(asset)+" cache cleared", cacheSpinner)
+	} else {
+		failSpinner("could not clear cached "+formatAsset(asset)+", reason: "+err.Error(), cacheSpinner)
+	}
 }
 
 func lookForCachedAsset(asset string) (string, error) {
@@ -172,11 +188,12 @@ func InstallAddon(asset string, clearCached bool) {
 	}
 }
 
-func UninstallAsset(asset string) {
+func UninstallAsset(asset string, clearCached bool) {
 	startSpinner("uninstalling "+formatAsset(asset), findSpinner)
-	if err := clearCache(asset); err != nil {
-		failSpinner("could not uninstall "+formatAsset(asset)+", reason: "+err.Error(), findSpinner)
+	if clearCached {
+		clearCache(asset)
 	}
+	// remove local addon
 	stopSpinner(formatAsset(asset)+" uninstalled", findSpinner)
 
 }

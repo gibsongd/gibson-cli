@@ -1,4 +1,4 @@
-module gibson/gisbon-cli
+module gibson
 
 go 1.18
 

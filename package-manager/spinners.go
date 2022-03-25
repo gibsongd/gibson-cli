@@ -25,7 +25,7 @@ func failSpinner(message string, spinner *yacspin.Spinner) {
 	spinner.StopFail()
 }
 
-func InitSpinners() {
+func initSpinners() {
 
 	findSpinner, _ = yacspin.New(
 		yacspin.Config{
@@ -64,6 +64,18 @@ func InitSpinners() {
 	)
 
 	installSpinner, _ = yacspin.New(
+		yacspin.Config{
+			Frequency:         100 * time.Millisecond,
+			CharSet:           yacspin.CharSets[59],
+			Prefix:            "[gibson-cli] ",
+			StopCharacter:     "✓",
+			StopColors:        []string{"fgGreen"},
+			StopFailCharacter: "✗",
+			StopFailColors:    []string{"fgRed"},
+		},
+	)
+
+	cacheSpinner, _ = yacspin.New(
 		yacspin.Config{
 			Frequency:         100 * time.Millisecond,
 			CharSet:           yacspin.CharSets[59],
