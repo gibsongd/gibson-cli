@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	packagemanager "gibson/package-manager"
+	packagemanager "gibson/package_manager"
 	"os"
 )
 
