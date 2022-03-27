@@ -2,10 +2,10 @@
 Golang CLI tool for Gibson framework: package manager, project manager, godot cli parser, class resolver, etc...
 
 ## Modules
-- [x] [Package Manager](#package-manager)
-- [] [Project Manager]()
-- [] [CLI Parser]()
-- [] [Class Resolver]()
+- [x] [Package Manager](#package-manager)  
+- [ ] [Project Manager]()  
+- [ ] [CLI Parser]()  
+- [ ] [Class Resolver]()  
 
 ### Package Manager
 Gibson package manager lets you install addons in your Godot projects.
