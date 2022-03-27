@@ -17,7 +17,7 @@ Once installed, addons will be cached in your %APP_DATA% folder, so all your God
 
 *search for an addon*
 ```bash
-➜ gibson pm -search "time"
+> gibson pm -search "time"
 
 [id]    [user]          [title]
 1275    Blaron          Timer Counter
@@ -33,7 +33,7 @@ Once installed, addons will be cached in your %APP_DATA% folder, so all your God
 
 *install an addon by `author/title`*
 ```bash
-➜ gibson pm -install "pycbouh/Time Tracker"
+> gibson pm -install "pycbouh/Time Tracker"
 
 [gibson-cli] ✓
 [gibson-cli] ✓   `pycbouh/Time Tracker` fetched!
@@ -44,7 +44,7 @@ Once installed, addons will be cached in your %APP_DATA% folder, so all your God
 
 *install an addon by `id`*
 ```bash
-➜ gibson pm -install 662
+> gibson pm -install 662
 
 [gibson-cli] ✓
 [gibson-cli] ✓   `662` info retrieved!
@@ -58,7 +58,7 @@ If an addon is already cached, it will just be unpacked in the current project.
 
 *install an addon by `author/title` (cached)*
 ```bash
-➜ gibson pm -install "pycbouh/Time Tracker"
+> gibson pm -install "pycbouh/Time Tracker"
 
 [gibson-cli] ✓   `pycbouh/Time Tracker` found in cache
 [gibson-cli] ✓   `pycbouh/Time Tracker` installed successfully!
@@ -66,7 +66,7 @@ If an addon is already cached, it will just be unpacked in the current project.
 
 *Want to clear the cache and force install?*
 ```bash
-➜ gibson pm -install "pycbouh/Time Tracker" -clear
+> gibson pm -install "pycbouh/Time Tracker" -clear
 
 [gibson-cli] ✓   `pycbouh/Time Tracker` cache cleared
 [gibson-cli] ✓   `pycbouh/Time Tracker` fetched!
@@ -77,7 +77,7 @@ If an addon is already cached, it will just be unpacked in the current project.
 
 *uninstall an addon*
 ```bash
-➜ gibson pm -uninstall "pycbouh/Time Tracker"
+> gibson pm -uninstall "pycbouh/Time Tracker"
 
 [gibson-cli] ✓   `time-tracker` removed
 [gibson-cli] ✓   `pycbouh/Time Tracker` uninstalled
@@ -85,11 +85,11 @@ If an addon is already cached, it will just be unpacked in the current project.
 
 *install all the addons listed in the `gibson.json` file*
 ```bash
-➜ gibson pm -install .
+> gibson pm -install .
 ```
 This is useful if you want to share your project and leave it addons-independent or want to make a lighter project.
 
 *list all addons currently installed (using gibson)*
 ```bash
-➜ gibson pm -list
+> gibson pm -list
 ```
