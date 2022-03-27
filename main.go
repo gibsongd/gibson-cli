@@ -7,60 +7,65 @@ import (
 	"os"
 )
 
-var version string = "1.0.0"
+var Version string = "1.1.0"
 
 func main() {
 	pmCmd := flag.NewFlagSet("pm", flag.ExitOnError)
 
-	var installAsset string
-	var uninstallAsset string
+	var searchAddon string
+	var installAddon string
+	var uninstallAddon string
 	var clearCached bool
+	var listAddons bool
 
-	pmCmd.StringVar(&installAsset, "install", "", "Install a new asset")
-	pmCmd.StringVar(&uninstallAsset, "uninstall", "", "Uninstall a new asset")
-	pmCmd.BoolVar(&clearCached, "clear", false, "Clear cached asset")
+	pmCmd.StringVar(&searchAddon, "search", "", "Search for an addon")
+	pmCmd.StringVar(&installAddon, "install", "", "Install a new addon")
+	pmCmd.StringVar(&uninstallAddon, "uninstall", "", "Uninstall a new addon")
+	pmCmd.BoolVar(&listAddons, "list", false, "List all addons installed in the current project")
+	pmCmd.BoolVar(&clearCached, "clear", false, "Clear cached addon")
 
 	versionPtr := flag.Bool("version", false, "Print gibson-cli version")
 	flag.Parse()
 
 	if *versionPtr {
-		fmt.Println(getVersion())
-		os.Exit(1)
+		fmt.Println(Version)
+		os.Exit(0)
 	}
-
 	if len(os.Args) < 2 {
-		fmt.Println(getUsage())
-		os.Exit(1)
+		flag.Usage()
+		pmCmd.Usage()
+		os.Exit(0)
 	}
-
 	switch os.Args[1] {
 	case "pm":
+		packagemanager.Init()
+
 		pmCmd.Parse(os.Args[2:])
-		if installAsset == "" && uninstallAsset == "" {
-			fmt.Println(packagemanager.GetUsage())
-			os.Exit(1)
+
+		if listAddons {
+			packagemanager.ListAddons()
+			os.Exit(0)
 		}
-		if installAsset != "" {
-			packagemanager.InstallAddon(installAsset, clearCached)
+		if searchAddon != "" {
+			packagemanager.SearchAddon(searchAddon)
+			os.Exit(0)
 		}
-		if uninstallAsset != "" {
-			packagemanager.UninstallAsset(uninstallAsset, clearCached)
+		if installAddon == "" && uninstallAddon == "" {
+			pmCmd.Usage()
+			os.Exit(0)
+		}
+		if installAddon != "" {
+			if installAddon == "." {
+				packagemanager.InstallByConfig(clearCached)
+			} else {
+				packagemanager.InstallAddon(installAddon, clearCached)
+			}
+		}
+		if uninstallAddon != "" {
+			packagemanager.UninstallAddon(uninstallAddon, clearCached)
 		}
 	default:
-		fmt.Println(getUsage())
-		os.Exit(1)
+		os.Exit(0)
 	}
 
-}
-
-func getVersion() string {
-	return version
-}
-
-func getUsage() string {
-	return "Usage:\n\n" +
-		"gibson pm    Package Manager\n" +
-		"\n" +
-		"All commands:\n\n" +
-		"    pm, version, help\n"
 }

@@ -2,6 +2,7 @@ package packagemanager
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -9,14 +10,26 @@ import (
 
 const BASE_URL string = "https://godotengine.org/asset-library/api"
 
-func doGet(url string, target interface{}) (int, error) {
+type HttpError struct {
+	Error string
+}
+
+func doGet(url string, target interface{}) error {
 	resp, err := http.Get(BASE_URL + url)
 	if err != nil {
-		return -1, err
+		return err
 	}
 	defer resp.Body.Close()
 
-	return resp.StatusCode, json.NewDecoder(resp.Body).Decode(target)
+	if resp.StatusCode >= 400 {
+		var httpError HttpError
+		json.NewDecoder(resp.Body).Decode(httpError)
+		err = errors.New(httpError.Error)
+	} else {
+		err = json.NewDecoder(resp.Body).Decode(target)
+	}
+
+	return err
 }
 
 func downloadFile(filepath string, url string) error {
