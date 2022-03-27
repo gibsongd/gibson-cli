@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+# Project Specific
+gibson.json
+addons/

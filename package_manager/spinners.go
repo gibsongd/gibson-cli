@@ -6,6 +6,15 @@ import (
 	"github.com/theckman/yacspin"
 )
 
+var findSpinner *yacspin.Spinner
+var getSpinner *yacspin.Spinner
+var downloadSpinner *yacspin.Spinner
+var installSpinner *yacspin.Spinner
+var cacheSpinner *yacspin.Spinner
+
+var colorYellow string = "\033[33m"
+var colorReset string = "\033[0m"
+
 func spinnerMessage(message string, spinner *yacspin.Spinner) {
 	spinner.Message(" " + message)
 }
