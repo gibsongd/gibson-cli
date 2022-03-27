@@ -23,6 +23,10 @@ func initConfig() {
 	}
 	cacheFolder = filepath.Join(folder, cacheFolder)
 
+	if _, err := os.Stat(cacheFolder); err != nil {
+		os.MkdirAll(cacheFolder, os.ModePerm)
+	}
+
 	if err = loadCachedConfig(); err != nil {
 		if err = saveCachedConfig(); err != nil {
 			panic(err)
