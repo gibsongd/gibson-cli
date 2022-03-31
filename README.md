@@ -7,6 +7,21 @@ Golang CLI tool for Gibson framework: package manager, project manager, godot cl
 - [ ] [CLI Parser]()  
 - [ ] [Class Resolver]()  
 
+## Installation
+### w/ GO
+If you have [go already installed](https://go.dev/doc/install) on your machine, clone this repository, and then:
+```bash
+cd gibson-cli
+go install
+```
+and gibson will be ready to serve you!
+
+### without GO
+Download binaries at your choice from the [latest release](https://github.com/gibsongd/gibson-cli/releases).
+Unzip gibson binaries wherever you want and
+- on linux, move `gibson` to `/usr/bin`
+- on windows, add gibson folder to %PATH% environment variable
+
 ### Package Manager
 Gibson package manager lets you install addons in your Godot projects.
 Gibson handles assets in a very similar (yet liter) way to `npm`.
