@@ -8,7 +8,7 @@ Golang CLI tool for Gibson framework: package manager, project manager, godot cl
 - [ ] [Class Resolver]()  
 
 ## Installation
-### w/ GO
+### with GO
 If you have [go already installed](https://go.dev/doc/install) on your machine, clone this repository, and then:
 ```bash
 cd gibson-cli
