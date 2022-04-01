@@ -1,6 +1,7 @@
 package packagemanager
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -17,16 +18,21 @@ func Init() {
 
 func clearAsset(asset string, folder string) error {
 	var assetPath string = filepath.Join(folder, asset)
+	fmt.Println(assetPath)
 	return os.RemoveAll(assetPath)
 }
 
 func clearCache(asset string) {
 	startSpinner("clearing cached "+formatAsset(asset), cacheSpinner)
-	if err := clearAsset(asset, cacheFolder); err == nil {
-		removeCachedAsset(asset)
-		stopSpinner(formatAsset(asset)+" cache cleared", cacheSpinner)
+	if archive, cached, err := lookForCachedAsset(asset); err == nil && archive != "" {
+		if err := clearAsset(filepath.Join(cached.Author, cached.Title), cacheFolder); err == nil {
+			removeCachedAsset(cached.Author + "/" + cached.Title)
+			stopSpinner(formatAsset(cached.Author+"/"+cached.Title)+" cache cleared", cacheSpinner)
+		} else {
+			failSpinner("could not find cached "+formatAsset(asset), err, cacheSpinner)
+		}
 	} else {
-		failSpinner("could not clear cached "+formatAsset(asset)+", reason: "+err.Error(), cacheSpinner)
+		failSpinner("could not clear cached "+formatAsset(asset), err, cacheSpinner)
 	}
 }
 
@@ -36,7 +42,7 @@ func clearLocal(asset string) {
 		removeAddon(Folder(asset))
 		stopSpinner(formatAsset(asset)+" removed", cacheSpinner)
 	} else {
-		failSpinner("could not remove "+formatAsset(asset)+", reason: "+err.Error(), cacheSpinner)
+		failSpinner("could not remove "+formatAsset(asset), err, cacheSpinner)
 	}
 }
 
@@ -82,7 +88,7 @@ func installAsset(addon Addon, archive string) {
 	startSpinner("installing "+formatAsset(asset), installSpinner)
 	folder, err := unzip(archive, addonsFolder)
 	if err != nil {
-		failSpinner("could not install "+formatAsset(asset)+", reason: "+err.Error(), installSpinner)
+		failSpinner("could not install "+formatAsset(asset), err, installSpinner)
 		return
 	}
 
@@ -105,13 +111,13 @@ func installByAuthor(asset string, clearCached bool) {
 
 	err := doGet("/asset?user="+author+"&godot_version=3.4", &assetResult)
 	if err != nil {
-		failSpinner("fetching failed, reason: "+err.Error(), findSpinner)
+		failSpinner("fetching failed", err, findSpinner)
 		return
 	}
 
 	// If there's a list, look for the asset
 	if len(assetResult.Result) < 1 {
-		failSpinner("couldn't find assets related to @"+author, findSpinner)
+		failSpinner("couldn't find assets related to @"+author, errors.New("author doesn't exist"), findSpinner)
 	}
 	for _, addon := range assetResult.Result {
 		if addon.Title == assetName {
@@ -122,8 +128,8 @@ func installByAuthor(asset string, clearCached bool) {
 	}
 
 	// If there's an asset, download it and install it
-	if toDownloadAddon.AssetId == "" {
-		failSpinner("couldn't find "+formatAsset(asset), findSpinner)
+	if toDownloadAddon == (Addon{}) {
+		failSpinner("couldn't find "+formatAsset(asset), errors.New("addon doesn't exist"), findSpinner)
 		return
 	}
 	stopSpinner(formatAsset(asset)+" fetched!", findSpinner)
@@ -138,7 +144,7 @@ func installById(assetId string) {
 	startSpinner("retrieving "+formatAsset(assetId)+" info", getSpinner)
 
 	if err := doGet("/asset/"+assetId, &toDownloadAddon); err != nil {
-		failSpinner("could not find "+formatAsset(assetId)+", reason: "+err.Error(), getSpinner)
+		failSpinner("could not find "+formatAsset(assetId), err, getSpinner)
 		return
 	}
 	stopSpinner(formatAsset(assetId)+" info retrieved!", getSpinner)
@@ -152,7 +158,7 @@ func installById(assetId string) {
 	var archive string = filepath.Join(assetFolder, toDownloadAddon.Version+"_"+toDownloadAddon.DownloadCommit+".zip")
 
 	if err := downloadFile(archive, toDownloadAddon.DownloadUrl); err != nil {
-		failSpinner("download failed, reason: "+err.Error(), downloadSpinner)
+		failSpinner("download failed", err, downloadSpinner)
 		return
 	}
 	stopSpinner(formatAsset(asset)+" downloaded!", downloadSpinner)
@@ -168,7 +174,7 @@ func uninstallAsset(asset string) {
 			return
 		}
 	}
-	failSpinner("couldn't find "+formatAsset(asset)+". Maybe it was already deleted or misstyped.", findSpinner)
+	failSpinner("couldn't find "+formatAsset(asset), errors.New("Maybe it was already deleted or misstyped."), findSpinner)
 }
 
 func InstallByConfig(clearCached bool) {

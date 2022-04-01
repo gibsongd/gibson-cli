@@ -14,6 +14,7 @@ var cacheSpinner *yacspin.Spinner
 
 var colorYellow string = "\033[33m"
 var colorReset string = "\033[0m"
+var colorRed string = "\033[31m"
 
 func spinnerMessage(message string, spinner *yacspin.Spinner) {
 	spinner.Message(" " + message)
@@ -29,8 +30,8 @@ func stopSpinner(message string, spinner *yacspin.Spinner) {
 	spinner.Stop()
 }
 
-func failSpinner(message string, spinner *yacspin.Spinner) {
-	spinner.StopFailMessage(" " + message)
+func failSpinner(message string, err error, spinner *yacspin.Spinner) {
+	spinner.StopFailMessage(" " + message + "; reason >> " + colorRed + err.Error() + colorReset)
 	spinner.StopFail()
 }
 
