@@ -26,7 +26,7 @@ Unzip gibson binaries wherever you want and
 Gibson package manager lets you install addons in your Godot projects.
 Gibson handles assets in a very similar (yet liter) way to `npm`.
 Addons are installed only from one trusted source, which is the official [AssetLib](https://godotengine.org/asset-library/asset) using their public APIs.
-Once installed, addons will be cached in your `$HOME/.cache` (*linux*) or `%LocalAppData%` (*windows*) folder, so all your Godot projects will be able to share addons just executing one command!
+Once installed, addons will be cached in your `$HOME/.cache` (*unix*) or `%LocalAppData%` (*windows*) folder, so all your Godot projects will be able to share addons just executing one command!
 
 #### examples
 
