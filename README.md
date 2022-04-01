@@ -19,8 +19,8 @@ and gibson will be ready to serve you!
 ### without GO
 Download binaries at your choice from the [latest release](https://github.com/gibsongd/gibson-cli/releases).
 Unzip gibson binaries wherever you want and
-- on linux, move `gibson` to `/usr/bin`
-- on windows, add gibson folder to %PATH% environment variable
+- on linux, move `gibson` binaries to `/usr/bin`
+- on windows, add `gibson.exe` folder to `%PATH%` environment variable
 
 ### Package Manager
 Gibson package manager lets you install addons in your Godot projects.
