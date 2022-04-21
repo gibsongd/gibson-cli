@@ -20,27 +20,29 @@ var (
 var installCmd = &cobra.Command{
 	Use:     `install`,
 	Aliases: []string{"i"},
-	Short:   "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Args:    cobra.MinimumNArgs(1),
+	Short:   "Install an asset from the AssetLibrary",
+	Long: `Install an asset from the AssetLibrary into the current project.
+	
+	Everytime an asset is installed via gibson, the installed addon will be cached.
+	When installing an asset, gibson will look for the asset author, name and id in the local cache,
+	and if a matching asset is found, it will be installed in the current project.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Assets can also be installed in batch using a gibson.json file.
+	When installing an addon using gibson, a gibson.json file will be created at the root of the current project,
+	and it will be used to store the information related to the addon installed.
+	You can share the gibson.json file instead of the whole asset/ folder of your projet to minimize the size of your project,
+	when sharing it with your team or publically.
+	Assets registered in the gibson.json file can be installed via the < gibson pm install . > command.
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		if len(args) == 0 {
-			cmd.Help()
-			return
-		}
-
 		if assetId != "" {
 			packagemanager.InstallById(assetId, force)
 			return
 		}
 
 		if asset != "" {
-			packagemanager.InstallByAuthor(asset, force)
+			packagemanager.InstallByAuthor(assetId, force)
 			return
 		}
 
@@ -53,18 +55,7 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(installCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// installCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// installCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 	installCmd.Flags().StringVar(&assetId, "id", "", "Install an asset by its id.")
 	installCmd.Flags().StringVar(&asset, "asset", "", "Install an asset by its {author}/{name} combination.")
-	installCmd.Flags().BoolVar(&force, "f", false, "Force install the asset, bypassing the cache and overwriting it.")
+	installCmd.Flags().BoolVarP(&force, "force", "f", false, "Force install the asset, bypassing the cache and overwriting it.")
 }
