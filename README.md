@@ -9,10 +9,9 @@ Golang CLI tool for Gibson framework: package manager, project manager, godot cl
 
 ## Installation
 ### with GO
-If you have [go already installed](https://go.dev/doc/install) on your machine, clone this repository, and then:
+If you have [go already installed](https://go.dev/doc/install) on your machine:
 ```bash
-cd gibson-cli
-go install
+go install https://github.com/gibsongd/gibson-cli
 ```
 and gibson will be ready to serve you!
 
