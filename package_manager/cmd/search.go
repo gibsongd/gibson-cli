@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	packagemanager "gibson/package_manager"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,7 @@ var (
 	supportFlag      string
 	filterFlag       string
 	userFlag         string
-	godotVersionFlag string = "3.4"
+	godotVersionFlag string
 	maxResultsFlag   int16
 	pageFlag         int16
 	offsetFlag       int16
@@ -39,7 +40,7 @@ var searchCmd = &cobra.Command{
 		if len(args) == 0 {
 			return errors.New("Must search at least a word!")
 		} else {
-			filterFlag = args[0]
+			filterFlag = strings.Join(args, " ")
 		}
 
 		if !packagemanager.Contains(validTypes, typeFlag) {
