@@ -12,8 +12,9 @@ var (
 
 // uninstallCmd represents the uninstall command
 var uninstallCmd = &cobra.Command{
-	Use:   "uninstall",
-	Short: "Uninstall an asset from the current project",
+	Use:     "uninstall",
+	Aliases: []string{"u"},
+	Short:   "Uninstall an asset from the current project",
 	Long: `Uninstall an asset from the current project.
 	The asset can be passed both by ID or by FullNmae ({author}/{name}).`,
 	Args: cobra.MinimumNArgs(1),
@@ -24,5 +25,5 @@ var uninstallCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(uninstallCmd)
-	installCmd.Flags().BoolVarP(&clearFlag, "clear", "c", false, "Clear all the cached versions of the asset you want to uninstall.")
+	uninstallCmd.Flags().BoolVarP(&clearFlag, "clear", "c", false, "Clear all the cached versions of the asset you want to uninstall.")
 }

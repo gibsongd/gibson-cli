@@ -31,7 +31,9 @@ Once installed, addons will be cached in your `$HOME/.cache` (*unix*) or `%Local
 
 *search for an addon*
 ```bash
-> gibson pm -search "time"
+> gibson pm search time
+or
+> gibson pm search "time"
 
 [id]    [user]          [title]
 1275    Blaron          Timer Counter
@@ -47,23 +49,24 @@ Once installed, addons will be cached in your `$HOME/.cache` (*unix*) or `%Local
 
 *install an addon by `author/title`*
 ```bash
-> gibson pm -install "pycbouh/Time Tracker"
+> gibson package_manager install "fenix/Godot Engine JWT"
+or
+> gibson pm i "fenix/Godot Engine JWT"
 
-[gibson-cli] ✓
-[gibson-cli] ✓   `pycbouh/Time Tracker` fetched!
-[gibson-cli] ✓   `662` info retrieved!
-[gibson-cli] ✓   `pycbouh/Time Tracker` downloaded!
-[gibson-cli] ✓   `pycbouh/Time Tracker` installed successfully!
+[gibson-cli] ✓   `fenix/Godot Engine JWT` found!
+[gibson-cli] ✓   `fenix/Godot Engine JWT` info retrieved!
+[gibson-cli] ✓   `fenix/Godot Engine JWT` downloaded!
+[gibson-cli] ✓   `fenix/Godot Engine JWT` installed successfully!
+
 ```
 
 *install an addon by `id`*
 ```bash
-> gibson pm -install 662
+> gibson pm i 1104
 
-[gibson-cli] ✓
-[gibson-cli] ✓   `662` info retrieved!
-[gibson-cli] ✓   `pycbouh/Time Tracker` downloaded!
-[gibson-cli] ✓   `pycbouh/Time Tracker` installed successfully!
+[gibson-cli] ✓   `fenix/Godot Engine JWT` info retrieved!
+[gibson-cli] ✓   `fenix/Godot Engine JWT` downloaded!
+[gibson-cli] ✓   `fenix/Godot Engine JWT` installed successfully!
 ```
 
 When an addon is installed, it will create a `gibson.json` in the current folder.
@@ -72,38 +75,48 @@ If an addon is already cached, it will just be unpacked in the current project.
 
 *install an addon by `author/title` (cached)*
 ```bash
-> gibson pm -install "pycbouh/Time Tracker"
+> gibson pm i "fenix/Godot Engine JWT"
 
-[gibson-cli] ✓   `pycbouh/Time Tracker` found in cache
-[gibson-cli] ✓   `pycbouh/Time Tracker` installed successfully!
+[gibson-cli] ✓   `fenix/Godot Engine JWT` found in cache
+[gibson-cli] ✓   `fenix/Godot Engine JWT` installed successfully!
 ```
 
-*Want to clear the cache and force install?*
+*Want to force install?*
 ```bash
-> gibson pm -install "pycbouh/Time Tracker" -clear
-
-[gibson-cli] ✓   `pycbouh/Time Tracker` cache cleared
-[gibson-cli] ✓   `pycbouh/Time Tracker` fetched!
-[gibson-cli] ✓   `662` info retrieved!
-[gibson-cli] ✓   `pycbouh/Time Tracker` downloaded!
-[gibson-cli] ✓   `pycbouh/Time Tracker` installed successfully!
+> gibson pm i "fenix/Godot Engine JWT" --force || -f
 ```
 
 *uninstall an addon*
 ```bash
-> gibson pm -uninstall "pycbouh/Time Tracker"
+> gibson pm uninstall "fenix/Godot Engine JWT"
 
-[gibson-cli] ✓   `time-tracker` removed
-[gibson-cli] ✓   `pycbouh/Time Tracker` uninstalled
+[gibson-cli] ✓   `fenix/Godot Engine JWT` removed
+[gibson-cli] ✓   `fenix/Godot Engine JWT` uninstalled
+```
+
+*uninstall an addon and clear all the cached versions *
+```bash
+> gibson pm uninstall "fenix/Godot Engine JWT" --clear || -c
+
+[gibson-cli] ✓   `fenix/Godot Engine JWT` cache cleared
+[gibson-cli] ✓   `fenix/Godot Engine JWT` removed
+[gibson-cli] ✓   `fenix/Godot Engine JWT` uninstalled
 ```
 
 *install all the addons listed in the `gibson.json` file*
 ```bash
-> gibson pm -install .
+> gibson pm i
 ```
 This is useful if you want to share your project and leave it addons-independent or want to make a lighter project.
 
 *list all addons currently installed (using gibson)*
 ```bash
-> gibson pm -list
+> gibson pm list
+
+assets/
+├─ dialogue_editor/     1200    (VP-GAMES/Dialogue Editor (G4))
+├─ draw3d/              1301    (nyxkn/Draw3D)
+├─ jwt/                 1104    (fenix/Godot Engine JWT)
+├─ stream_comment/      1300    (velop/Stream Comment)
+└─ telegram-bot-api/    1072    (fenix/Telegram Bot API)
 ```

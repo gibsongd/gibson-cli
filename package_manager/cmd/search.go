@@ -33,9 +33,10 @@ func invalidFlag(flagName string, validValues []string) error {
 
 // searchCmd represents the search command
 var searchCmd = &cobra.Command{
-	Use:   "search",
-	Short: "Look for an asset in the asset library.",
-	Long:  ``,
+	Use:     "search",
+	Aliases: []string{"s"},
+	Short:   "Look for an asset in the asset library.",
+	Long:    ``,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return errors.New("Must search at least a word!")
