@@ -1,40 +1,28 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
-	"fmt"
+	packagemanager "gibson/package_manager"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	clearFlag bool
 )
 
 // uninstallCmd represents the uninstall command
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Uninstall an asset from the current project",
+	Long: `Uninstall an asset from the current project.
+	The asset can be passed both by ID or by FullNmae ({author}/{name}).`,
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("uninstall called")
+		packagemanager.UninstallAsset(args[0], clearFlag)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(uninstallCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// uninstallCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// uninstallCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	installCmd.Flags().BoolVarP(&clearFlag, "clear", "c", false, "Clear all the cached versions of the asset you want to uninstall.")
 }

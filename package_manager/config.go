@@ -2,29 +2,38 @@ package packagemanager
 
 import (
 	"encoding/json"
+	swagger "gibson/package_manager/client"
 	"os"
 	"path/filepath"
 )
 
-var cachedConfig CachedConfig = CachedConfig{
-	CachedAddons: map[AssetName]Addon{},
-}
-var projectConfig ProjectConfig = ProjectConfig{
-	Addons: map[Folder]GibsonAddon{},
-}
+const (
+	PACKAGE_MANAGER_V      string = "1.1.0"
+	ASSETS_FOLDER          string = "addons"
+	ARCHIVE_NAME_DELIMITER string = "$"
+)
 
-var cacheFolder string = filepath.Join("gibson", "addons")
-var addonsFolder string = "addons"
+var (
+	CACHE_FOLDER string       = filepath.Join("gibson", "addons")
+	cachedConfig CachedConfig = CachedConfig{
+		Version:      PACKAGE_MANAGER_V,
+		CachedAssets: map[string]swagger.AssetDetails{},
+	}
+	projectConfig ProjectConfig = ProjectConfig{
+		Version: PACKAGE_MANAGER_V,
+		Assets:  map[string]GibsonAsset{},
+	}
+)
 
 func initConfig() {
 	folder, err := os.UserCacheDir()
 	if err != nil {
 		panic(err)
 	}
-	cacheFolder = filepath.Join(folder, cacheFolder)
+	CACHE_FOLDER = filepath.Join(folder, CACHE_FOLDER)
 
-	if _, err := os.Stat(cacheFolder); err != nil {
-		os.MkdirAll(cacheFolder, os.ModePerm)
+	if _, err := os.Stat(CACHE_FOLDER); err != nil {
+		os.MkdirAll(CACHE_FOLDER, os.ModePerm)
 	}
 
 	if err = loadCachedConfig(); err != nil {
@@ -42,7 +51,7 @@ func initConfig() {
 
 func loadCachedConfig() error {
 	var config CachedConfig
-	content, err := os.Open(filepath.Join(cacheFolder, "gibson.json"))
+	content, err := os.Open(filepath.Join(CACHE_FOLDER, "gibson.json"))
 	if err != nil {
 		return err
 	}
@@ -55,21 +64,17 @@ func loadCachedConfig() error {
 
 func saveCachedConfig() error {
 	marshal, err := json.Marshal(cachedConfig)
-	err = os.WriteFile(filepath.Join(cacheFolder, "gibson.json"), marshal, os.ModePerm)
+	err = os.WriteFile(filepath.Join(CACHE_FOLDER, "gibson.json"), marshal, os.ModePerm)
 	return err
 }
 
-func addCachedAsset(asset string, addon Addon) {
-	if len(cachedConfig.CachedAddons) == 0 {
-		cachedConfig.CachedAddons = map[AssetName]Addon{AssetName(asset): addon}
-	} else {
-		cachedConfig.CachedAddons[AssetName(asset)] = addon
-	}
+func addCachedAsset(assetDetails swagger.AssetDetails) {
+	cachedConfig.CachedAssets[assetDetails.Author+"/"+assetDetails.Title] = assetDetails
 	saveCachedConfig()
 }
 
-func removeCachedAsset(asset string) {
-	delete(cachedConfig.CachedAddons, AssetName(asset))
+func removeCachedAsset(fullName string) {
+	delete(cachedConfig.CachedAssets, fullName)
 	saveCachedConfig()
 }
 
@@ -92,16 +97,21 @@ func saveConfig() error {
 	return err
 }
 
-func addAddon(folder Folder, addon GibsonAddon) {
-	if len(projectConfig.Addons) == 0 {
-		projectConfig.Addons = map[Folder]GibsonAddon{folder: addon}
-	} else {
-		projectConfig.Addons[folder] = addon
+func addAsset(currentFolder string, assetDetails swagger.AssetDetails) {
+	projectConfig.Assets[currentFolder] = GibsonAsset{
+		Id:       assetDetails.AssetId,
+		FullName: assetDetails.Author + "/" + assetDetails.Title,
+		Version:  assetDetails.VersionString,
 	}
 	saveConfig()
 }
 
-func removeAddon(folder Folder) {
-	delete(projectConfig.Addons, folder)
+func removeAsset(assetId string) {
+	for currentFolder, gibsonAsset := range projectConfig.Assets {
+		if gibsonAsset.Id == assetId || currentFolder == assetId {
+			delete(projectConfig.Assets, currentFolder)
+			break
+		}
+	}
 	saveConfig()
 }

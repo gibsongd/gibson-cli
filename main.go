@@ -6,6 +6,8 @@ package main
 
 import "gibson/cmd"
 
+const VERSION string = "1"
+
 func main() {
 	cmd.Execute()
 }

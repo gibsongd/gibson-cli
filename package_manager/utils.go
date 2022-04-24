@@ -26,7 +26,7 @@ func unzip(src string, dest string) (string, error) {
 	for i, f := range r.File {
 
 		if i == 0 {
-			basePath = f.Name + addonsFolder
+			basePath = f.Name + ASSETS_FOLDER
 			continue
 		}
 
@@ -66,4 +66,13 @@ func unzip(src string, dest string) (string, error) {
 		}
 	}
 	return packageName, nil
+}
+
+func Contains(array []string, value string) bool {
+	for _, curr := range array {
+		if curr == value {
+			return true
+		}
+	}
+	return false
 }

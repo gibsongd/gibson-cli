@@ -1,26 +1,25 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
+	"errors"
 	packagemanager "gibson/package_manager"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	asset   string
-	assetId string
-	force   bool
+	asset           string
+	assets          []string
+	isFullName      bool
+	forceFlag       bool
+	installByConfig bool
 )
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
 	Use:     `install`,
 	Aliases: []string{"i"},
-	Args:    cobra.MinimumNArgs(1),
 	Short:   "Install an asset from the AssetLibrary",
 	Long: `Install an asset from the AssetLibrary into the current project.
 	
@@ -35,19 +34,40 @@ var installCmd = &cobra.Command{
 	when sharing it with your team or publically.
 	Assets registered in the gibson.json file can be installed via the < gibson pm install . > command.
 	`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			installByConfig = true
+		} else {
+			if len(args) == 1 {
+				asset = args[0]
+				if isFullName = strings.Contains(asset, "/"); isFullName {
+					if spl := strings.Split(asset, "/"); spl[0] == "" || spl[1] == "" {
+						return errors.New("\033[31mInvalid asset, must match {author}/{name} format!\033[0m")
+					}
+				}
+			} else {
+				assets = args
+			}
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
-		if assetId != "" {
-			packagemanager.InstallById(assetId, force)
+		if installByConfig {
+			packagemanager.InstallByConfig(forceFlag)
 			return
 		}
 
-		if asset != "" {
-			packagemanager.InstallByAuthor(assetId, force)
+		if len(assets) > 0 {
+			for _, asset := range assets {
+				packagemanager.InstallAsset(asset, forceFlag)
+			}
 			return
 		}
-
-		if packagemanager.Contains(args, ".") {
-			packagemanager.InstallByConfig(force)
+		if isFullName {
+			packagemanager.InstallByAuthor(asset, forceFlag)
+			return
+		} else {
+			packagemanager.InstallById(asset, forceFlag)
 			return
 		}
 	},
@@ -55,7 +75,5 @@ var installCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(installCmd)
-	installCmd.Flags().StringVar(&assetId, "id", "", "Install an asset by its id.")
-	installCmd.Flags().StringVar(&asset, "asset", "", "Install an asset by its {author}/{name} combination.")
-	installCmd.Flags().BoolVarP(&force, "force", "f", false, "Force install the asset, bypassing the cache and overwriting it.")
+	installCmd.Flags().BoolVarP(&forceFlag, "force", "f", false, "Force install the asset, bypassing the cache and overwriting it.")
 }

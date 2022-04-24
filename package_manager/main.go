@@ -1,6 +1,8 @@
 package packagemanager
 
 import (
+	swagger "gibson/package_manager/client"
+
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -9,23 +11,30 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/antihax/optional"
+)
+
+var (
+	httpclient *swagger.APIClient
 )
 
 func Init() {
+	httpclient = swagger.NewAPIClient(swagger.NewConfiguration())
 	initConfig()
 	initSpinners()
 }
 
-func clearAsset(asset string, folder string) error {
-	var assetPath string = filepath.Join(folder, asset)
-	fmt.Println(assetPath)
+func removeAssetFolder(assetFullName string, folder string) error {
+	var assetPath string = filepath.Join(folder, assetFullName)
 	return os.RemoveAll(assetPath)
 }
 
-func clearCache(asset string) {
+func ClearCached(asset string) {
 	startSpinner("clearing cached "+formatAsset(asset), cacheSpinner)
 	if archive, cached, err := lookForCachedAsset(asset); err == nil && archive != "" {
-		if err := clearAsset(filepath.Join(cached.Author, cached.Title), cacheFolder); err == nil {
+		var assetFullName string = filepath.Join(cached.Author, cached.Title)
+		if err := removeAssetFolder(assetFullName, CACHE_FOLDER); err == nil {
 			removeCachedAsset(cached.Author + "/" + cached.Title)
 			stopSpinner(formatAsset(cached.Author+"/"+cached.Title)+" cache cleared", cacheSpinner)
 		} else {
@@ -38,17 +47,17 @@ func clearCache(asset string) {
 
 func clearLocal(asset string) {
 	startSpinner("removing "+formatAsset(asset), cacheSpinner)
-	if err := clearAsset(asset, addonsFolder); err == nil {
-		removeAddon(Folder(asset))
+	if err := removeAssetFolder(asset, ASSETS_FOLDER); err == nil {
+		removeAsset(asset)
 		stopSpinner(formatAsset(asset)+" removed", cacheSpinner)
 	} else {
 		failSpinner("could not remove "+formatAsset(asset), err, cacheSpinner)
 	}
 }
 
-// Look for cached addon by <author>/<name>
+// Look for cached Asset by <author>/<name>
 // 1) if there's a folder with such name, return the archive's path
-// 2) if there's no archive but the addon was cached in config, use those information to install
+// 2) if there's no archive but the Asset was cached in config, use those information to install
 // 3) else return nill and fetch+install
 
 func getArchivedAsset(assetPath string) (string, error) {
@@ -64,165 +73,184 @@ func getArchivedAsset(assetPath string) (string, error) {
 	return "", err
 }
 
-func lookForCachedAsset(asset string) (string, Addon, error) {
+func lookForCachedAsset(asset string) (string, swagger.AssetDetails, error) {
 	var assetPath string
-	var cachedAddon Addon
+	var cachedAsset swagger.AssetDetails
 	if strings.Contains(asset, "/") {
-		assetPath = filepath.Join(cacheFolder, asset)
-		cachedAddon = cachedConfig.CachedAddons[AssetName(asset)]
+		assetPath = filepath.Join(CACHE_FOLDER, asset)
+		cachedAsset = cachedConfig.CachedAssets[asset]
 	} else {
-		for assetName, addon := range cachedConfig.CachedAddons {
-			if addon.AssetId == asset {
-				assetPath = filepath.Join(cacheFolder, string(assetName))
-				cachedAddon = addon
+		for fullName, assetDetails := range cachedConfig.CachedAssets {
+			if assetDetails.AssetId == asset {
+				assetPath = filepath.Join(CACHE_FOLDER, fullName)
+				cachedAsset = assetDetails
 				break
 			}
 		}
 	}
 	archivedPath, err := getArchivedAsset(assetPath)
-	return archivedPath, cachedAddon, err
+	return archivedPath, cachedAsset, err
 }
 
-func installAsset(addon Addon, archive string) {
-	var asset string = addon.Author + "/" + addon.Title
-	startSpinner("installing "+formatAsset(asset), installSpinner)
-	folder, err := unzip(archive, addonsFolder)
+func installAsset(asset swagger.AssetDetails, archive string) error {
+	startSpinner("installing "+formatAsset(asset.Author+"/"+asset.Title), installSpinner)
+	currentFolder, err := unzip(archive, ASSETS_FOLDER)
 	if err != nil {
-		failSpinner("could not install "+formatAsset(asset), err, installSpinner)
-		return
+		return err
+	}
+	addAsset(currentFolder, asset)
+	addCachedAsset(asset)
+	stopSpinner(formatAsset(asset.Author+"/"+asset.Title)+" installed successfully!", installSpinner)
+	fmt.Println()
+	return nil
+}
+
+func handleCached(asset string) bool {
+	startSpinner("looking for "+formatAsset(asset)+" in cache", cacheSpinner)
+	if archive, cached, err := lookForCachedAsset(asset); err == nil && archive != "" {
+		stopSpinner(formatAsset(asset)+" found in cache", cacheSpinner)
+		installAsset(cached, archive)
+		return true
+	}
+	stopSpinner("", cacheSpinner)
+	return false
+}
+
+func InstallByAuthor(asset string, forceInstall bool) {
+	if !forceInstall {
+		if handleCached(asset) {
+			return
+		}
 	}
 
-	addAddon(Folder(folder), GibsonAddon{Asset: asset, Id: addon.AssetId})
-	addCachedAsset(asset, addon)
+	splAsset := strings.Split(asset, "/")
+	var author string = splAsset[0]
+	var assetName string = splAsset[1]
 
-	stopSpinner(formatAsset(asset)+" installed successfully!", installSpinner)
-}
-
-func installByAuthor(asset string, clearCached bool) {
-	tempPack := strings.Split(asset, "/")
-	var author string = tempPack[0]
-	var assetName string = tempPack[1]
-
-	var toDownloadAddon Addon = Addon{}
-	var assetResult AssetResult = AssetResult{}
+	var toDownloadAsset swagger.AssetSummary = swagger.AssetSummary{}
 
 	// Look for asset by the author
 	startSpinner("looking for "+formatAsset(asset), findSpinner)
 
-	err := doGet("/asset?user="+author+"&godot_version=3.4", &assetResult)
-	if err != nil {
+	var query swagger.AssetsApiAssetGetOpts = swagger.AssetsApiAssetGetOpts{
+		User:         optional.NewString(author),
+		GodotVersion: optional.NewString("3.4"),
+	}
+
+	paginatedAssetList, response, err := httpclient.AssetsApi.AssetGet(nil, &query)
+	if err != nil && response.StatusCode < 400 {
 		failSpinner("fetching failed", err, findSpinner)
 		return
 	}
 
 	// If there's a list, look for the asset
-	if len(assetResult.Result) < 1 {
+	if len(paginatedAssetList.Result) < 1 {
 		failSpinner("couldn't find assets related to @"+author, errors.New("author doesn't exist"), findSpinner)
 	}
-	for _, addon := range assetResult.Result {
-		if addon.Title == assetName {
-			toDownloadAddon = addon
-			spinnerMessage(formatAsset(asset)+" found!", findSpinner)
+	for _, foundAsset := range paginatedAssetList.Result {
+		if foundAsset.Title == assetName {
+			toDownloadAsset = foundAsset
+			stopSpinner(formatAsset(asset)+" found!", findSpinner)
 			break
 		}
 	}
 
 	// If there's an asset, download it and install it
-	if toDownloadAddon == (Addon{}) {
-		failSpinner("couldn't find "+formatAsset(asset), errors.New("addon doesn't exist"), findSpinner)
+	if toDownloadAsset.AssetId == "" {
+		failSpinner("couldn't find "+formatAsset(asset), errors.New("asset doesn't exist"), findSpinner)
 		return
 	}
-	stopSpinner(formatAsset(asset)+" fetched!", findSpinner)
 
-	installById(toDownloadAddon.AssetId)
-
+	InstallById(toDownloadAsset.AssetId, forceInstall)
 }
 
-func installById(assetId string) {
-	var toDownloadAddon Addon = Addon{AssetId: assetId}
+func InstallById(assetId string, forceInstall bool) {
+	if !forceInstall {
+		if handleCached(assetId) {
+			return
+		}
+	}
+
+	var assetDetails swagger.AssetDetails = swagger.AssetDetails{}
 
 	startSpinner("retrieving "+formatAsset(assetId)+" info", getSpinner)
 
-	if err := doGet("/asset/"+assetId, &toDownloadAddon); err != nil {
-		failSpinner("could not find "+formatAsset(assetId), err, getSpinner)
+	assetDetails, response, err := httpclient.AssetsApi.AssetIdGet(nil, assetId)
+	if err != nil {
+		failSpinner("download failed", err, getSpinner)
 		return
 	}
-	stopSpinner(formatAsset(assetId)+" info retrieved!", getSpinner)
+	if response.StatusCode == 404 {
+		failSpinner("download failed", errors.New("could not find asset"), getSpinner)
+		return
+	}
 
-	var asset string = toDownloadAddon.Author + "/" + toDownloadAddon.Title
-	var assetFolder string = filepath.Join(cacheFolder, asset)
+	var asset string = assetDetails.Author + "/" + assetDetails.Title
+	stopSpinner(formatAsset(asset)+" info retrieved!", getSpinner)
+
+	var assetFolder string = filepath.Join(CACHE_FOLDER, asset)
 	os.MkdirAll(assetFolder, os.ModePerm)
 
 	startSpinner("downloading "+formatAsset(asset), downloadSpinner)
 
-	var archive string = filepath.Join(assetFolder, toDownloadAddon.Version+"_"+toDownloadAddon.DownloadCommit+".zip")
-
-	if err := downloadFile(archive, toDownloadAddon.DownloadUrl); err != nil {
+	var archive string = filepath.Join(assetFolder, assetDetails.Version+".zip")
+	if err := downloadFile(archive, assetDetails.DownloadUrl); err != nil {
 		failSpinner("download failed", err, downloadSpinner)
 		return
 	}
 	stopSpinner(formatAsset(asset)+" downloaded!", downloadSpinner)
 
-	installAsset(toDownloadAddon, archive)
-}
-
-func uninstallAsset(asset string) {
-	for folder, addon := range projectConfig.Addons {
-		if addon.Asset == asset || addon.Id == asset {
-			clearLocal(string(folder))
-			stopSpinner(formatAsset(asset)+" uninstalled", findSpinner)
-			return
-		}
-	}
-	failSpinner("couldn't find "+formatAsset(asset), errors.New("Maybe it was already deleted or misstyped."), findSpinner)
-}
-
-func InstallByConfig(clearCached bool) {
-	for _, addon := range projectConfig.Addons {
-		installByAuthor(addon.Asset, clearCached)
+	if err := installAsset(assetDetails, archive); err != nil {
+		failSpinner("could not install "+formatAsset(asset), err, installSpinner)
 	}
 }
 
-func InstallAddon(asset string, clearCached bool) {
-	if clearCached {
-		clearCache(asset)
-	} else {
-		startSpinner("looking for "+formatAsset(asset)+" in cache", cacheSpinner)
-		archive, cached, err := lookForCachedAsset(asset)
-		if err == nil && archive != "" {
-			stopSpinner(formatAsset(asset)+" found in cache", cacheSpinner)
-			installAsset(cached, archive)
-			return
-		} else {
-			stopSpinner("", cacheSpinner)
-		}
+func InstallByConfig(forceInstall bool) {
+	for _, gibsonAsset := range projectConfig.Assets {
+		InstallById(gibsonAsset.Id, forceInstall)
 	}
+}
 
+func InstallAsset(asset string, forceInstall bool) {
 	if strings.Contains(asset, "/") {
-		installByAuthor(asset, clearCached)
+		InstallByAuthor(asset, forceInstall)
 	} else {
-		installById(asset)
+		InstallById(asset, forceInstall)
 	}
 }
 
-func UninstallAddon(asset string, clearCached bool) {
+func uninstallAsset(asset string) bool {
+	for currentFolder, gibsonAsset := range projectConfig.Assets {
+		if gibsonAsset.Id == asset || gibsonAsset.FullName == asset {
+			clearLocal(currentFolder)
+			return true
+		}
+	}
+	return false
+}
+
+func UninstallAsset(asset string, clearClached bool) {
 	startSpinner("uninstalling "+formatAsset(asset), findSpinner)
-	if clearCached {
-		clearCache(asset)
+	if clearClached {
+		ClearCached(asset)
 	}
-	uninstallAsset(asset)
+	if uninstallAsset(asset) {
+		stopSpinner(formatAsset(asset)+" uninstalled", findSpinner)
+	} else {
+		failSpinner("couldn't find "+formatAsset(asset), errors.New("Maybe it was already deleted or misstyped."), findSpinner)
+	}
 }
 
-func ListAddons() {
+func ListAssets() {
 	writer := tabwriter.NewWriter(os.Stdout, 0, 8, 0, '\t', 0)
 	var i int = 0
-	fmt.Fprintln(writer, "addons/")
-	for folder, addon := range projectConfig.Addons {
+	fmt.Fprintln(writer, "assets/")
+	for folder, asset := range projectConfig.Assets {
 		var prefix string = "├─ "
-		if i == len(projectConfig.Addons)-1 {
+		if i == len(projectConfig.Assets)-1 {
 			prefix = "└─ "
 		}
-		var line []string = []string{prefix + string(folder) + "/", addon.Id, "(" + addon.Asset + ")"}
+		var line []string = []string{prefix + string(folder) + "/", asset.Id, "(" + asset.FullName + ")"}
 		fmt.Fprintln(writer, strings.Join(line, "\t"))
 		i++
 	}
@@ -230,16 +258,47 @@ func ListAddons() {
 	writer.Flush()
 }
 
-func SearchAddon(search string) {
-	var result AssetResult
-	if err := doGet("/asset?filter="+search+"&godot_version=3.4", &result); err != nil {
+func SearchAsset(search string, type_ string, category string, support string, user string, godotVersion string,
+	maxResults int16, page int16, offset int16, sort string, reverse bool) {
+	var query swagger.AssetsApiAssetGetOpts = swagger.AssetsApiAssetGetOpts{
+		Filter:       optional.NewString(search),
+		GodotVersion: optional.NewString(godotVersion),
+		Sort:         optional.NewString(sort),
+	}
+	if type_ != "" {
+		query.Type_ = optional.NewString(type_)
+	}
+	if category != "" {
+		query.Category = optional.NewString(category)
+	}
+	if support != "" {
+		query.Support = optional.NewString(support)
+	}
+	if user != "" {
+		query.User = optional.NewString(user)
+	}
+	if maxResults != 0 {
+		query.MaxResults = optional.NewString(fmt.Sprint(maxResults))
+	}
+	if page != 0 {
+		query.Page = optional.NewString(fmt.Sprint(page))
+	}
+	if offset != 0 {
+		query.Offset = optional.NewString(fmt.Sprint(offset))
+	}
+	if reverse {
+		query.Reverse = optional.NewBool(reverse)
+	}
+
+	if paginatedAssetList, _, err := httpclient.AssetsApi.AssetGet(nil, &query); err != nil {
 		return
+	} else {
+		writer := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
+		fmt.Fprintln(writer, "[id]\t[user]\t[title]")
+		for _, assetSummary := range paginatedAssetList.Result {
+			fmt.Fprintln(writer, strings.Join([]string{assetSummary.AssetId, assetSummary.Author, assetSummary.Title}, "\t"))
+		}
+		fmt.Fprintln(writer)
+		writer.Flush()
 	}
-	writer := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
-	fmt.Fprintln(writer, "[id]\t[user]\t[title]")
-	for _, addon := range result.Result {
-		fmt.Fprintln(writer, strings.Join([]string{addon.AssetId, addon.Author, addon.Title}, "\t"))
-	}
-	fmt.Fprintln(writer)
-	writer.Flush()
 }
